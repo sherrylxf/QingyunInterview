@@ -39,7 +39,7 @@ COPY qingyun-api/src ./qingyun-api/src
 COPY qingyun-gateway/src ./qingyun-gateway/src
 
 # 构建项目
-RUN mvn clean package -DskipTests -pl qingyun-gateway -am
+RUN mvn clean package -Dmaven.test.skip=true -pl qingyun-gateway -am
 
 # 运行阶段
 FROM eclipse-temurin:21-jre-alpine

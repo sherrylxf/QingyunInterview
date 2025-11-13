@@ -35,7 +35,7 @@ COPY qingyun-common/src ./qingyun-common/src
 COPY qingyun-api/src ./qingyun-api/src
 COPY qingyun-web-user/src ./qingyun-web-user/src
 
-RUN mvn clean package -DskipTests -pl qingyun-web-user -am
+RUN mvn clean package -Dmaven.test.skip=true -pl qingyun-web-user -am
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
