@@ -52,16 +52,12 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- 跳过 Spring Boot repackage，因为这是API接口定义包，不是可执行应用 -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
+                    <skip>true</skip>
                 </configuration>
             </plugin>
         </plugins>

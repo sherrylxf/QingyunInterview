@@ -69,5 +69,18 @@
         </dependency>
     </dependencies>
 
+    <build>
+        <plugins>
+            <!-- 跳过 Spring Boot repackage，因为这是工具包，不是可执行应用 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
 
