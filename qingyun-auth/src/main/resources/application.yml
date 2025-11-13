@@ -1,0 +1,60 @@
+server:
+  port: 8000
+
+spring:
+  application:
+    name: qingyun-auth
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: qingyun-dev
+        group: DEFAULT_GROUP
+      config:
+        server-addr: localhost:8848
+        namespace: qingyun-dev
+        group: DEFAULT_GROUP
+        file-extension: yml
+        shared-configs:
+          - data-id: qingyun-common.yml
+            group: DEFAULT_GROUP
+            refresh: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# JWT配置
+jwt:
+  secret: qingyun-platform-secret-key-2024-very-long-secret-key-for-jwt-token-generation
+  expire-time: 604800000  # 7天（毫秒）
+
+# Knife4j配置
+knife4j:
+  enable: true
+  openapi:
+    title: 青云平台 - 认证服务API文档
+    description: 认证服务接口文档
+    version: 1.0.0
+    contact:
+      name: qingyun
+      email: qingyun@example.com
+
+# 日志配置
+logging:
+  level:
+    com.qingyun: debug
+    org.springframework: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+

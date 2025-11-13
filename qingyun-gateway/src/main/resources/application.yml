@@ -1,0 +1,83 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: qingyun-gateway
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: qingyun-dev
+        group: DEFAULT_GROUP
+      config:
+        server-addr: localhost:8848
+        namespace: qingyun-dev
+        group: DEFAULT_GROUP
+        file-extension: yml
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # 认证服务
+        - id: qingyun-auth
+          uri: lb://qingyun-auth
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+        # 用户服务
+        - id: qingyun-service-user
+          uri: lb://qingyun-service-user
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - StripPrefix=1
+        # 题库服务
+        - id: qingyun-service-question
+          uri: lb://qingyun-service-question
+          predicates:
+            - Path=/api/question/**
+          filters:
+            - StripPrefix=1
+        # 打卡记录服务
+        - id: qingyun-service-record
+          uri: lb://qingyun-service-record
+          predicates:
+            - Path=/api/record/**
+          filters:
+            - StripPrefix=1
+        # 管理员服务
+        - id: qingyun-service-admin
+          uri: lb://qingyun-service-admin
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - StripPrefix=1
+        # 统计分析服务
+        - id: qingyun-service-stat
+          uri: lb://qingyun-service-stat
+          predicates:
+            - Path=/api/stat/**
+          filters:
+            - StripPrefix=1
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+# 日志配置
+logging:
+  level:
+    com.qingyun: debug
+    org.springframework.cloud.gateway: debug
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+

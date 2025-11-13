@@ -1,0 +1,39 @@
+server:
+  port: 9002
+
+spring:
+  application:
+    name: qingyun-web-user
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: qingyun-dev
+        group: DEFAULT_GROUP
+      config:
+        server-addr: localhost:8848
+        namespace: qingyun-dev
+        group: DEFAULT_GROUP
+        file-extension: yml
+
+# Knife4j配置
+knife4j:
+  enable: true
+  openapi:
+    title: 青云平台 - 用户端API文档
+    description: 用户端接口文档
+    version: 1.0.0
+    contact:
+      name: qingyun
+      email: qingyun@example.com
+
+# 日志配置
+logging:
+  level:
+    com.qingyun: debug
+    org.springframework: info
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+

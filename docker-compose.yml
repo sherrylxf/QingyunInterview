@@ -1,0 +1,358 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0.33
+    container_name: qingyun-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-qingyun123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-qingyun_db}
+      MYSQL_USER: ${MYSQL_USER:-qingyun}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:3306:3306"  # 仅允许本地访问
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./config/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    networks:
+      - qingyun-network
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: qingyun-redis
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"  # 仅允许本地访问
+    volumes:
+      - ./data/redis:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - qingyun-network
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Nacos服务注册与配置中心
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: qingyun-nacos
+    restart: always
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: mysql
+      MYSQL_SERVICE_HOST: mysql
+      MYSQL_SERVICE_PORT: 3306
+      MYSQL_SERVICE_DB_NAME: nacos_config
+      MYSQL_SERVICE_USER: root
+      MYSQL_SERVICE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-qingyun123456}
+      NACOS_AUTH_ENABLE: true
+      NACOS_AUTH_TOKEN: SecretKey012345678901234567890123456789012345678901234567890123456789
+      NACOS_AUTH_IDENTITY_KEY: serverIdentity
+      NACOS_AUTH_IDENTITY_VALUE: server
+      TZ: Asia/Shanghai
+    ports:
+      - "${NACOS_PORT:-8848}:8848"
+      - "9848:9848"
+    volumes:
+      - ./data/nacos/logs:/home/nacos/logs
+      - ./data/nacos/data:/home/nacos/data
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 网关服务
+  gateway:
+    build:
+      context: .
+      dockerfile: qingyun-gateway/Dockerfile
+    container_name: qingyun-gateway
+    restart: always
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/gateway:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 认证服务
+  auth:
+    build:
+      context: .
+      dockerfile: qingyun-auth/Dockerfile
+    container_name: qingyun-auth
+    restart: always
+    ports:
+      - "${AUTH_PORT:-8000}:8000"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qingyun_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-qingyun}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/auth:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  # 用户服务
+  user-service:
+    build:
+      context: .
+      dockerfile: qingyun-service/qingyun-service-user/Dockerfile
+    container_name: qingyun-service-user
+    restart: always
+    ports:
+      - "${USER_SERVICE_PORT:-8001}:8001"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qingyun_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-qingyun}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/user-service:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  # 题库服务
+  question-service:
+    build:
+      context: .
+      dockerfile: qingyun-service/qingyun-service-question/Dockerfile
+    container_name: qingyun-service-question
+    restart: always
+    ports:
+      - "${QUESTION_SERVICE_PORT:-8002}:8002"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qingyun_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-qingyun}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/question-service:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  # 打卡记录服务
+  record-service:
+    build:
+      context: .
+      dockerfile: qingyun-service/qingyun-service-record/Dockerfile
+    container_name: qingyun-service-record
+    restart: always
+    ports:
+      - "${RECORD_SERVICE_PORT:-8003}:8003"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qingyun_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-qingyun}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/record-service:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  # 管理员服务
+  admin-service:
+    build:
+      context: .
+      dockerfile: qingyun-service/qingyun-service-admin/Dockerfile
+    container_name: qingyun-service-admin
+    restart: always
+    ports:
+      - "${ADMIN_SERVICE_PORT:-8004}:8004"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qingyun_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-qingyun}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/admin-service:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  # 统计分析服务
+  stat-service:
+    build:
+      context: .
+      dockerfile: qingyun-service/qingyun-service-stat/Dockerfile
+    container_name: qingyun-service-stat
+    restart: always
+    ports:
+      - "${STAT_SERVICE_PORT:-8005}:8005"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-qingyun_db}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-qingyun}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-qingyun123456}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/stat-service:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+
+  # 管理端后端
+  web-admin:
+    build:
+      context: .
+      dockerfile: qingyun-web-admin/Dockerfile
+    container_name: qingyun-web-admin
+    restart: always
+    ports:
+      - "${WEB_ADMIN_PORT:-9001}:9001"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/web-admin:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      nacos:
+        condition: service_healthy
+
+  # 用户端后端
+  web-user:
+    build:
+      context: .
+      dockerfile: qingyun-web-user/Dockerfile
+    container_name: qingyun-web-user
+    restart: always
+    ports:
+      - "${WEB_USER_PORT:-9002}:9002"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      JAVA_OPTS: ${JVM_OPTS:--Xms512m -Xmx1024m}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./logs/web-user:/app/logs
+    networks:
+      - qingyun-network
+    depends_on:
+      nacos:
+        condition: service_healthy
+
+networks:
+  qingyun-network:
+    driver: bridge
+    name: qingyun-network
+
+volumes:
+  mysql-data:
+  redis-data:
+  nacos-data:
+
