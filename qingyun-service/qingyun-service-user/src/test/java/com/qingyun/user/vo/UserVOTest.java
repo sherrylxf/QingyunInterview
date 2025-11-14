@@ -48,7 +48,7 @@ class UserVOTest {
         userVO.setUsername("testuser");
         
         // 验证实现了Serializable接口
-        assertTrue(userVO instanceof java.io.Serializable);
+        assertInstanceOf(java.io.Serializable.class, userVO);
     }
 }
 

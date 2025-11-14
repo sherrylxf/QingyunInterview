@@ -60,21 +60,29 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
+      db-type: mysql
       id-type: auto
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# Knife4j配置
-knife4j:
-  enable: true
-  openapi:
+# SpringDoc OpenAPI配置（Knife4j基于SpringDoc）
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+  info:
     title: 青云平台 - 用户服务API文档
     description: 用户服务接口文档
     version: 1.0.0
     contact:
       name: qingyun
       email: qingyun@example.com
+
+# Knife4j配置
+knife4j:
+  enable: true
 
 # 日志配置
 logging:
