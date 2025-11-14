@@ -7,6 +7,7 @@ import com.qingyun.common.entity.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.io.Serial;
 import java.time.LocalDateTime;
 
 /**
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 @TableName("qy_user")
 public class User extends BaseEntity {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
